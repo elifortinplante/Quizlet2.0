@@ -1,231 +1,146 @@
 <!DOCTYPE html>
 <html lang="fr">
 <head>
-  <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Mini-Quizlet Coloré</title>
-  <script src="https://cdn.tailwindcss.com"></script>
-  <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link href="https://fonts.googleapis.com/css2?family=Fredoka:wght@400;600;700&display=swap" rel="stylesheet">
-  <style>
-    html,body{font-family:Fredoka,system-ui,Segoe UI,Roboto,Helvetica,Arial}
-    .card-3d{transform-style:preserve-3d; transition: transform .4s ease}
-    .card-3d.flipped{transform:rotateY(180deg)}
-    .face{backface-visibility:hidden}
-    .back{transform:rotateY(180deg)}
-    .gradient-bg{background:linear-gradient(135deg,#6366f1,#ec4899,#f59e0b);}
-    .btn{ @apply inline-flex items-center justify-center px-4 py-2 rounded-2xl font-semibold transition transform active:scale-95; }
-    .btn-primary{ @apply bg-gradient-to-r from-indigo-500 via-purple-500 to-pink-500 text-white shadow-lg hover:opacity-90; }
-    .btn-secondary{ @apply bg-white text-indigo-600 border-2 border-indigo-400 hover:bg-indigo-50; }
-    .btn-danger{ @apply bg-red-500 text-white shadow hover:bg-red-600; }
-    .input{ @apply w-full rounded-xl border-2 border-slate-300 px-3 py-2 focus:outline-none focus:ring-4 focus:ring-pink-300; }
-    .label{ @apply text-sm font-semibold text-slate-700; }
-    .chip{ @apply text-xs px-2 py-1 rounded-full bg-indigo-100 text-indigo-700 font-medium; }
-  </style>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Mini-Quizlet Ludique</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<link href="https://fonts.googleapis.com/css2?family=Fredoka:wght@400;600;700&display=swap" rel="stylesheet">
+<style>
+html,body{font-family:Fredoka,system-ui,Segoe UI,Roboto,Helvetica,Arial}
+body{background:linear-gradient(135deg,#6366f1,#ec4899,#f59e0b);min-height:100vh;color:white}
+.btn{ @apply inline-flex items-center justify-center px-4 py-2 rounded-2xl font-semibold transition transform active:scale-95; }
+.btn-primary{ @apply bg-gradient-to-r from-indigo-500 via-purple-500 to-pink-500 text-white shadow-lg hover:opacity-90; }
+.btn-secondary{ @apply bg-white text-indigo-600 border-2 border-indigo-400 hover:bg-indigo-50; }
+.card{ @apply rounded-3xl bg-white p-8 shadow-xl text-center text-slate-800 cursor-pointer select-none relative; transition-all; }
+.card.dragging{ @apply opacity-80; transform:translate-x-0; }
+.input{ @apply w-full rounded-xl border-2 border-slate-300 px-3 py-2 focus:outline-none focus:ring-4 focus:ring-pink-300; }
+.label{ @apply text-sm font-semibold; }
+.chip{ @apply text-xs px-2 py-1 rounded-full bg-indigo-100 text-indigo-700 font-medium; }
+.reward{ @apply text-xl text-yellow-400 font-bold mt-4 text-center; }
+</style>
 </head>
-<body class="gradient-bg min-h-screen text-slate-800">
-  <div class="max-w-5xl mx-auto p-4 sm:p-8">
-    <!-- Header -->
-    <header class="flex flex-col sm:flex-row items-start sm:items-center gap-4 justify-between mb-8">
-      <div class="flex items-center gap-3">
-        <div class="w-12 h-12 rounded-2xl bg-white text-indigo-600 grid place-items-center font-extrabold text-xl shadow-lg">MQ</div>
-        <div>
-          <h1 class="text-3xl sm:text-4xl font-bold text-white drop-shadow">Mini-Quizlet</h1>
-          <p class="text-sm text-indigo-100">Rends l’étude amusante et colorée ✨</p>
-        </div>
-      </div>
-      <div class="flex items-center gap-2">
-        <button id="btnNewSet" class="btn btn-primary">+ Nouveau set</button>
-        <button id="btnImport" class="btn btn-secondary">Importer</button>
-        <button id="btnExportAll" class="btn btn-secondary">Exporter tout</button>
-        <input id="fileImport" type="file" accept="application/json" class="hidden" />
-      </div>
-    </header>
-
-    <!-- Views container -->
-    <main>
-      <!-- Home / Sets list -->
-      <section id="viewHome" class="">
-        <div id="setsGrid" class="grid sm:grid-cols-2 lg:grid-cols-3 gap-6"></div>
-        <p id="emptyMsg" class="text-white mt-6 hidden text-center font-semibold">Aucun set encore 🎉 Crée ton premier !</p>
-      </section>
-
-      <!-- Editor -->
-      <section id="viewEditor" class="hidden">
-        <div class="mb-4 flex items-center justify-between">
-          <button class="btn btn-secondary" onclick="showHome()">← Retour</button>
-          <button id="btnStudy" class="btn btn-primary">▶ Étudier</button>
-        </div>
-
-        <div class="grid sm:grid-cols-2 gap-4 mb-6">
-          <div>
-            <label class="label text-white">Titre du set</label>
-            <input id="setTitle" class="input" placeholder="Ex: Vocabulaire anglais"/>
-          </div>
-          <div>
-            <label class="label text-white">Matière</label>
-            <input id="setSubject" class="input" placeholder="Ex: Anglais"/>
-          </div>
-        </div>
-
-        <div class="mb-3 flex items-center justify-between">
-          <h2 class="font-bold text-white">Cartes</h2>
-          <button id="btnAddCard" class="btn btn-primary">+ Ajouter</button>
-        </div>
-        <div id="cardsList" class="space-y-3"></div>
-        <p id="noCardsMsg" class="text-white mt-4 hidden">Aucune carte pour l’instant.</p>
-      </section>
-
-      <!-- Study -->
-      <section id="viewStudy" class="hidden">
-        <div class="mb-4 flex items-center justify-between">
-          <button class="btn btn-secondary" onclick="backToEditor()">← Retour</button>
-          <div id="studyProgress" class="chip">0 / 0</div>
-        </div>
-
-        <div class="relative max-w-md mx-auto">
-          <div id="card" class="card-3d bg-white rounded-3xl p-8 shadow-xl cursor-pointer select-none">
-            <div class="face front text-center">
-              <div class="text-sm text-slate-500 mb-2">Question</div>
-              <div id="frontText" class="text-2xl font-bold"></div>
-            </div>
-            <div class="face back absolute inset-0 rounded-3xl p-8 bg-pink-100 text-center">
-              <div class="text-sm text-slate-600 mb-2">Réponse</div>
-              <div id="backText" class="text-2xl font-bold"></div>
-            </div>
-          </div>
-        </div>
-
-        <div class="mt-6 flex flex-col sm:flex-row items-center justify-center gap-4">
-          <button id="btnFlip" class="btn btn-primary">Retourner</button>
-          <button id="btnWrong" class="btn btn-danger">À revoir ✖</button>
-          <button id="btnRight" class="btn btn-secondary">Je sais ✔</button>
-        </div>
-      </section>
-    </main>
-  </div>
-
-  <template id="tplSetCard">
-    <div class="rounded-3xl bg-white shadow-lg p-5 flex flex-col hover:scale-[1.02] transition">
-      <div class="flex-1">
-        <div class="font-bold text-lg set-title">Titre</div>
-        <div class="text-sm text-slate-500 set-subject">Matière</div>
-      </div>
-      <div class="mt-3 flex items-center justify-between">
-        <span class="chip set-count">0 cartes</span>
-        <button class="btn btn-primary btn-open">Ouvrir</button>
-      </div>
-    </div>
-  </template>
-
-  <template id="tplCardRow">
-    <div class="rounded-2xl bg-white shadow p-4">
-      <div class="grid sm:grid-cols-2 gap-3">
-        <textarea class="input input-front" rows="2" placeholder="Recto (question)"></textarea>
-        <textarea class="input input-back" rows="2" placeholder="Verso (réponse)"></textarea>
-      </div>
-    </div>
-  </template>
-
-  <script>
-    const LS_KEY = 'mini_quizlet_sets_simple';
-    let sets = [];
-    let currentSetId = null;
-    function uid(){ return Math.random().toString(36).slice(2,10)+Date.now().toString(36).slice(-4); }
-    function load(){ try{ sets = JSON.parse(localStorage.getItem(LS_KEY)||'[]'); }catch{ sets=[] } }
-    function save(){ localStorage.setItem(LS_KEY, JSON.stringify(sets)); }
-    function findSet(id){ return sets.find(s=>s.id===id); }
-
-    const viewHome=document.getElementById('viewHome');
-    const viewEditor=document.getElementById('viewEditor');
-    const viewStudy=document.getElementById('viewStudy');
-
-    function showHome(){viewHome.classList.remove('hidden');viewEditor.classList.add('hidden');viewStudy.classList.add('hidden');renderHome();}
-    function showEditor(){viewHome.classList.add('hidden');viewEditor.classList.remove('hidden');viewStudy.classList.add('hidden');renderEditor();}
-    function showStudy(){viewHome.classList.add('hidden');viewEditor.classList.add('hidden');viewStudy.classList.remove('hidden');startStudy();}
-
-    const setsGrid=document.getElementById('setsGrid');
-    const emptyMsg=document.getElementById('emptyMsg');
-    function renderHome(){
-      setsGrid.innerHTML='';
-      if(!sets.length){emptyMsg.classList.remove('hidden');return;}
-      emptyMsg.classList.add('hidden');
-      const tpl=document.getElementById('tplSetCard');
-      sets.forEach(s=>{
-        const el=tpl.content.cloneNode(true);
-        el.querySelector('.set-title').textContent=s.title||'Sans titre';
-        el.querySelector('.set-subject').textContent=s.subject||'—';
-        el.querySelector('.set-count').textContent=`${s.cards?.length||0} cartes`;
-        el.querySelector('.btn-open').onclick=()=>{currentSetId=s.id;showEditor();};
-        setsGrid.appendChild(el);
-      });
-    }
-
-    document.getElementById('btnNewSet').onclick=()=>{
-      const s={id:uid(),title:'Nouveau set',subject:'',cards:[]};
-      sets.unshift(s);save();currentSetId=s.id;showEditor();
-    };
-
-    const setTitle=document.getElementById('setTitle');
-    const setSubject=document.getElementById('setSubject');
-    const cardsList=document.getElementById('cardsList');
-    const noCardsMsg=document.getElementById('noCardsMsg');
-    function renderEditor(){
-      const s=findSet(currentSetId);if(!s)return showHome();
-      setTitle.value=s.title;setSubject.value=s.subject;
-      cardsList.innerHTML='';
-      if(!s.cards.length)noCardsMsg.classList.remove('hidden');else noCardsMsg.classList.add('hidden');
-      const tpl=document.getElementById('tplCardRow');
-      s.cards.forEach(c=>{
-        const row=tpl.content.cloneNode(true);
-        const f=row.querySelector('.input-front');
-        const b=row.querySelector('.input-back');
-        f.value=c.front;b.value=c.back;
-        f.oninput=()=>{c.front=f.value;save();};
-        b.oninput=()=>{c.back=b.value;save();};
-        cardsList.appendChild(row);
-      });
-    }
-
-    document.getElementById('btnAddCard').onclick=()=>{
-      const s=findSet(currentSetId);if(!s)return;
-      s.cards.push({id:uid(),front:'',back:''});
-      save();renderEditor();
-    };
-
-    const btnStudy=document.getElementById('btnStudy');
-    btnStudy.onclick=()=>showStudy();
-
-    const card3d=document.getElementById('card');
-    const frontText=document.getElementById('frontText');
-    const backText=document.getElementById('backText');
-    const studyProgress=document.getElementById('studyProgress');
-    const btnFlip=document.getElementById('btnFlip');
-    const btnWrong=document.getElementById('btnWrong');
-    const btnRight=document.getElementById('btnRight');
-    let study={order:[],i:0};
-
-    function backToEditor(){showEditor();}
-    function startStudy(){
-      const s=findSet(currentSetId);if(!s)return showHome();
-      study.order=s.cards.map(c=>c.id);
-      study.i=0;updateStudyCard();
-    }
-    function currentStudyCard(){const s=findSet(currentSetId);return s.cards.find(c=>c.id===study.order[study.i]);}
-    function updateStudyCard(){
-      const s=findSet(currentSetId);const c=currentStudyCard();
-      if(!c){alert('Plus de cartes 🎉');return backToEditor();}
-      studyProgress.textContent=`${study.i+1}/${study.order.length}`;
-      frontText.textContent=c.front||'—';
-      backText.textContent=c.back||'—';
-      card3d.classList.remove('flipped');
-    }
-    card3d.onclick=()=>card3d.classList.toggle('flipped');
-    btnFlip.onclick=()=>card3d.classList.toggle('flipped');
-    btnWrong.onclick=()=>{study.i++;updateStudyCard();};
-    btnRight.onclick=()=>{study.i++;updateStudyCard();};
-
-    load();showHome();
-  </script>
+<body>
+<div class="max-w-5xl mx-auto p-4 sm:p-8">
+<header class="flex flex-col sm:flex-row items-start sm:items-center gap-4 justify-between mb-8">
+<div class="flex items-center gap-3">
+<div class="w-12 h-12 rounded-2xl bg-white text-indigo-600 grid place-items-center font-extrabold text-xl shadow-lg">MQ</div>
+<div>
+<h1 class="text-3xl sm:text-4xl font-bold drop-shadow">Mini-Quizlet</h1>
+<p class="text-sm text-indigo-100">Étudier en s’amusant ✨</p>
+</div>
+</div>
+<div class="flex items-center gap-2">
+<button id="btnNewSet" class="btn btn-primary">+ Nouveau set</button>
+<button id="btnExportAll" class="btn btn-secondary">Exporter tout</button>
+</div>
+</header>
+<main>
+<section id="viewHome">
+<div id="setsGrid" class="grid sm:grid-cols-2 lg:grid-cols-3 gap-6"></div>
+<p id="emptyMsg" class="text-white mt-6 hidden text-center font-semibold">Aucun set encore 🎉 Crée ton premier !</p>
+</section>
+<section id="viewEditor" class="hidden">
+<div class="mb-4 flex items-center justify-between">
+<button class="btn btn-secondary" onclick="showHome()">← Retour</button>
+<button id="btnStudy" class="btn btn-primary">▶ Étudier</button>
+</div>
+<div class="grid sm:grid-cols-2 gap-4 mb-6">
+<div>
+<label class="label">Titre du set</label>
+<input id="setTitle" class="input" placeholder="Ex: Vocabulaire anglais" />
+</div>
+<div>
+<label class="label">Matière</label>
+<input id="setSubject" class="input" placeholder="Ex: Anglais" />
+</div>
+</div>
+<div class="mb-3 flex items-center justify-between">
+<h2 class="font-bold">Cartes</h2>
+<button id="btnAddCard" class="btn btn-primary">+ Ajouter</button>
+</div>
+<div id="cardsList" class="space-y-3"></div>
+<p id="noCardsMsg" class="text-white mt-4 hidden">Aucune carte pour l’instant.</p>
+</section>
+<section id="viewStudy" class="hidden">
+<div class="mb-4 flex items-center justify-between">
+<button class="btn btn-secondary" onclick="backToEditor()">← Retour</button>
+<div id="studyProgress" class="chip">0 / 0</div>
+</div>
+<div class="relative max-w-md mx-auto overflow-hidden">
+<div id="card" class="card">Clique pour commencer</div>
+</div>
+<div class="mt-4 text-center">
+<div id="rewardMsg" class="reward"></div>
+</div>
+<div class="mt-6 flex flex-col sm:flex-row items-center justify-center gap-4">
+<button id="btnRestartAll" class="btn btn-primary">Tout recommencer</button>
+<button id="btnRestartWrong" class="btn btn-secondary">Reprendre les mauvaises</button>
+</div>
+</section>
+</main>
+<template id="tplSetCard">
+<div class="rounded-3xl bg-white shadow-lg p-5 flex flex-col hover:scale-[1.02] transition">
+<div class="flex-1">
+<div class="font-bold text-lg set-title">Titre</div>
+<div class="text-sm text-slate-500 set-subject">Matière</div>
+</div>
+<div class="mt-3 flex items-center justify-between">
+<span class="chip set-count">0 cartes</span>
+<button class="btn btn-primary btn-open">Ouvrir</button>
+</div>
+</div>
+</template>
+<template id="tplCardRow">
+<div class="rounded-2xl bg-white shadow p-4">
+<div class="grid sm:grid-cols-2 gap-3">
+<textarea class="input input-front" rows="2" placeholder="Recto (question)"></textarea>
+<textarea class="input input-back" rows="2" placeholder="Verso (réponse)"></textarea>
+</div>
+</div>
+</template>
+<script>
+const LS_KEY='mini_quizlet_sets';
+let sets=[],currentSetId=null;
+function uid(){return Math.random().toString(36).slice(2,10)+Date.now().toString(36).slice(-4);}
+function load(){try{sets=JSON.parse(localStorage.getItem(LS_KEY)||'[]');}catch{sets=[]}}
+function save(){localStorage.setItem(LS_KEY,JSON.stringify(sets));}
+function findSet(id){return sets.find(s=>s.id===id);}
+const viewHome=document.getElementById('viewHome');
+const viewEditor=document.getElementById('viewEditor');
+const viewStudy=document.getElementById('viewStudy');
+function showHome(){viewHome.classList.remove('hidden');viewEditor.classList.add('hidden');viewStudy.classList.add('hidden');renderHome();}
+function showEditor(){viewHome.classList.add('hidden');viewEditor.classList.remove('hidden');viewStudy.classList.add('hidden');renderEditor();}
+function showStudy(){viewHome.classList.add('hidden');viewEditor.classList.add('hidden');viewStudy.classList.remove('hidden');startStudy();}
+const setsGrid=document.getElementById('setsGrid');
+const emptyMsg=document.getElementById('emptyMsg');
+function renderHome(){setsGrid.innerHTML='';if(!sets.length){emptyMsg.classList.remove('hidden');return;}emptyMsg.classList.add('hidden');const tpl=document.getElementById('tplSetCard');sets.forEach(s=>{const el=tpl.content.cloneNode(true);el.querySelector('.set-title').textContent=s.title||'Sans titre';el.querySelector('.set-subject').textContent=s.subject||'—';el.querySelector('.set-count').textContent=`${s.cards?.length||0} cartes`;el.querySelector('.btn-open').onclick=()=>{currentSetId=s.id;showEditor();};setsGrid.appendChild(el);});}
+document.getElementById('btnNewSet').onclick=()=>{const s={id:uid(),title:'Nouveau set',subject:'',cards:[]};sets.unshift(s);save();currentSetId=s.id;showEditor();};
+const setTitle=document.getElementById('setTitle');
+const setSubject=document.getElementById('setSubject');
+const cardsList=document.getElementById('cardsList');
+const noCardsMsg=document.getElementById('noCardsMsg');
+function renderEditor(){const s=findSet(currentSetId);if(!s)return showHome();setTitle.value=s.title;setSubject.value=s.subject;cardsList.innerHTML='';if(!s.cards.length)noCardsMsg.classList.remove('hidden');else noCardsMsg.classList.add('hidden');const tpl=document.getElementById('tplCardRow');s.cards.forEach(c=>{const row=tpl.content.cloneNode(true);const f=row.querySelector('.input-front');const b=row.querySelector('.input-back');f.value=c.front;b.value=c.back;f.oninput=()=>{c.front=f.value;save();renderHome();};b.oninput=()=>{c.back=b.value;save();renderHome();};cardsList.appendChild(row);});}
+document.getElementById('btnAddCard').onclick=()=>{const s=findSet(currentSetId);s.cards.push({id:uid(),front:'',back:''});save();renderEditor();};
+document.getElementById('btnStudy').onclick=()=>startStudy();
+const cardEl=document.getElementById('card');
+const studyProgress=document.getElementById('studyProgress');
+const rewardMsg=document.getElementById('rewardMsg');
+let study={order:[],i:0,wrong:[],score:0};
+function backToEditor(){showEditor();rewardMsg.textContent='';}
+function startStudy(restartWrong=false){const s=findSet(currentSetId);if(!s)return showHome();study.order=restartWrong?study.wrong.slice():s.cards.map(c=>c.id);study.i=0;study.wrong=[];study.score=0;rewardMsg.textContent='';updateStudyCard();}
+function currentCard(){const s=findSet(currentSetId);return s.cards.find(c=>c.id===study.order[study.i]);}
+function updateStudyCard(){const c=currentCard();if(!c){alert('Session terminée 🎉');rewardMsg.textContent=`Score: ${study.score} / ${study.order.length}`;return backToEditor();}studyProgress.textContent=`${study.i+1}/${study.order.length}`;cardEl.textContent=c.front;}
+function markCard(correct){const c=currentCard();if(correct){study.score++;if(study.score%10===0)rewardMsg.textContent=`🎉 Bravo ! ${study.score} points !`;}
+else study.wrong.push(c.id);study.i++;updateStudyCard();}
+document.getElementById('btnRestartAll').onclick=()=>startStudy(false);
+document.getElementById('btnRestartWrong').onclick=()=>startStudy(true);
+// Glisser carte
+let startX=0,isDragging=false;
+cardEl.addEventListener('mousedown',e=>{startX=e.clientX;isDragging=true;cardEl.classList.add('dragging');});
+document.addEventListener('mousemove',e=>{if(!isDragging)return;const dx=e.clientX-startX;cardEl.style.transform=`translateX(${dx}px)`;});
+document.addEventListener('mouseup',e=>{if(!isDragging)return;isDragging=false;cardEl.classList.remove('dragging');const dx=e.clientX-startX;if(dx>100)markCard(true);else if(dx<-100)markCard(false);cardEl.style.transform='';});
+load();showHome();
+</script>
 </body>
 </html>
