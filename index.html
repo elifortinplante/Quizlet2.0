@@ -50,12 +50,13 @@ body{margin:0;padding:0;font-family:sans-serif;background:linear-gradient(135deg
   <div id="rewardMsg" class="reward"></div>
   <button id="btnRestartAll" class="btn btn-primary">Tout recommencer</button>
   <button id="btnRestartWrong" class="btn btn-secondary">Reprendre les mauvaises</button>
+  <button id="btnHome" class="btn btn-secondary">🏠 Home</button>
 </div>
 
 <script>
 let sets=JSON.parse(localStorage.getItem('mini_quizlet_sets')||'[]');
 let currentSet=null;
-let study={order:[],i:0,wrong:[],score:0};
+let study={order:[],i:0,wrong:[],score:0,finished:false};
 
 const viewHome=document.getElementById('viewHome');
 const viewEditor=document.getElementById('viewEditor');
@@ -103,9 +104,15 @@ function renderCards(){
   list.innerHTML='';
   currentSet.cards.forEach((c,i)=>{
     const div=document.createElement('div');
-    div.innerHTML=`
-      <input class='input' value='${c.front}' oninput='currentSet.cards[${i}].front=this.value'/>
-      <input class='input' value='${c.back}' oninput='currentSet.cards[${i}].back=this.value'/>`;
+    const f=document.createElement('input');
+    f.className='input'; f.value=c.front;
+    f.addEventListener('focus',()=>{if(f.value==='Question') f.value='';});
+    f.addEventListener('input',()=>{c.front=f.value; saveSets();});
+    const b=document.createElement('input');
+    b.className='input'; b.value=c.back;
+    b.addEventListener('focus',()=>{if(b.value==='Réponse') b.value='';});
+    b.addEventListener('input',()=>{c.back=b.value; saveSets();});
+    div.appendChild(f); div.appendChild(b);
     list.appendChild(div);
   });
 }
@@ -114,7 +121,7 @@ function deleteSet(idx){sets.splice(idx,1);saveSets();renderHome();}
 function startStudySet(idx){currentSet=sets[idx]; startStudy();}
 function startStudy(restartWrong=false){
   study.order=restartWrong?study.wrong.slice():currentSet.cards.map((c,i)=>i);
-  study.i=0; study.wrong=[]; study.score=0;
+  study.i=0; study.wrong=[]; study.score=0; study.finished=false;
   viewHome.style.display='none'; viewEditor.style.display='none'; viewStudy.style.display='block';
   document.getElementById('studySetTitle').textContent=currentSet.title;
   updateStudyCard();
@@ -124,16 +131,29 @@ function currentCard(){return currentSet.cards[study.order[study.i]];}
 function updateStudyCard(){
   const c=currentCard();
   const cardEl=document.getElementById('card');
-  if(!c){document.getElementById('rewardMsg').textContent=`Score: ${study.score}/${study.order.length}`; return;}
+  if(!c){
+    study.finished=true;
+    document.getElementById('rewardMsg').textContent=`Score final: ${study.score}/${study.order.length}`;
+    cardEl.style.pointerEvents='none';
+    return;
+  }
   document.getElementById('studyProgress').textContent=`${study.i+1}/${study.order.length}`;
   cardEl.querySelector('.card-front').textContent=c.front;
   cardEl.querySelector('.card-back').textContent=c.back;
   cardEl.classList.remove('flipped');
+  cardEl.style.pointerEvents='auto';
 }
 
-function markCard(correct){if(!correct) study.wrong.push(study.order[study.i]); else study.score++; study.i++; updateStudyCard();}
+function markCard(correct){
+  if(study.finished) return;
+  if(!correct) study.wrong.push(study.order[study.i]); else study.score++;
+  study.i++;
+  updateStudyCard();
+}
 
-document.getElementById('btnAddCard').onclick=()=>{currentSet.cards.push({front:'Question',back:'Réponse'}); renderCards(); saveSets();};
+document.getElementById('btnAddCard').onclick=()=>{
+  currentSet.cards.push({front:'Question',back:'Réponse'}); renderCards(); saveSets();
+};
 document.getElementById('btnSaveSet').onclick=()=>{
   currentSet.title=document.getElementById('setTitle').value;
   currentSet.subject=document.getElementById('setSubject').value;
@@ -142,6 +162,7 @@ document.getElementById('btnSaveSet').onclick=()=>{
 document.getElementById('btnBackHome').onclick=()=>{renderHome(); viewEditor.style.display='none'; viewHome.style.display='block';};
 document.getElementById('btnRestartAll').onclick=()=>{startStudy(false);};
 document.getElementById('btnRestartWrong').onclick=()=>{if(study.wrong.length===0){alert('Pas de mauvaises réponses.'); return;} startStudy(true);};
+document.getElementById('btnHome').onclick=()=>{viewStudy.style.display='none'; renderHome(); viewHome.style.display='block';};
 
 const cardEl=document.getElementById('card');
 let startX=0;
@@ -149,8 +170,8 @@ cardEl.addEventListener('touchstart',e=>{startX=e.touches[0].clientX;});
 cardEl.addEventListener('touchmove',e=>{const dx=e.touches[0].clientX-startX; cardEl.style.transform=`translateX(${dx}px)`;});
 cardEl.addEventListener('touchend',e=>{
   const dx=e.changedTouches[0].clientX-startX;
-  if(dx>50) markCard(true);
-  else if(dx<-50) markCard(false);
+  if(dx>100) markCard(true);
+  else if(dx<-100) markCard(false);
   cardEl.style.transform='';
 });
 cardEl.addEventListener('click',()=>{cardEl.classList.toggle('flipped');});
