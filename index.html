@@ -6,13 +6,16 @@
 <title>Mini-Quizlet Mobile</title>
 <script src="https://cdn.tailwindcss.com"></script>
 <style>
-html,body{font-family:sans-serif;margin:0;padding:0;}
-body{background:linear-gradient(135deg,#6366f1,#ec4899,#f59e0b);min-height:100vh;color:white;display:flex;flex-direction:column;align-items:center;}
+body{margin:0;padding:0;font-family:sans-serif;background:linear-gradient(135deg,#6366f1,#ec4899,#f59e0b);color:white;display:flex;flex-direction:column;align-items:center;min-height:100vh;}
+.input{width:100%;padding:8px;margin-top:5px;border-radius:15px;border:2px solid #ddd;color:black;background:white;}
 .btn{padding:10px 20px;border-radius:25px;font-weight:600;margin:5px;}
 .btn-primary{background:linear-gradient(90deg,#6366f1,#ec4899);color:white;}
 .btn-secondary{background:white;color:#6366f1;border:2px solid #6366f1;}
-.input{width:100%;padding:8px;border-radius:15px;border:2px solid #ddd;margin-top:5px;color:black;background:white;}
-.card{width:300px;height:200px;background:white;color:black;border-radius:30px;display:flex;align-items:center;justify-content:center;font-size:20px;text-align:center;margin:20px 0;user-select:none;touch-action:none;}
+.card-container{perspective:1000px;margin:20px 0;display:flex;justify-content:center;width:100%;}
+.card{width:300px;height:200px;background:white;color:black;border-radius:30px;display:flex;align-items:center;justify-content:center;font-size:20px;text-align:center;user-select:none;touch-action:none;transition:transform 0.6s;transform-style:preserve-3d;position:relative;}
+.card.flipped{transform:rotateY(180deg);}
+.card-face{position:absolute;width:100%;height:100%;backface-visibility:hidden;display:flex;align-items:center;justify-content:center;}
+.card-back{transform:rotateY(180deg);}
 .chip{background:#dbeafe;color:#1e3a8a;padding:5px 10px;border-radius:50px;font-size:14px;}
 .reward{color:yellow;font-size:18px;margin-top:10px;text-align:center;}
 .set-title-display{font-size:24px;font-weight:bold;text-align:center;margin-bottom:10px;}
@@ -32,30 +35,75 @@ body{background:linear-gradient(135deg,#6366f1,#ec4899,#f59e0b);min-height:100vh
 <div id="viewStudy" style="display:none;">
 <div class="set-title-display" id="studySetTitle"></div>
 <div id="studyProgress" class="chip">0 / 0</div>
-<div id="card" class="card">Clique pour commencer</div>
+<div class="card-container"><div id="card" class="card"><div class="card-face card-front"></div><div class="card-face card-back"></div></div></div>
 <div id="rewardMsg" class="reward"></div>
 <button id="btnRestartAll" class="btn btn-primary">Tout recommencer</button>
 <button id="btnRestartWrong" class="btn btn-secondary">Reprendre les mauvaises</button>
 </div>
 <script>
-let sets=[];
-let currentSet={cards:[],title:'',subject:''};
+let sets=JSON.parse(localStorage.getItem('mini_quizlet_sets')||'[]');
+let currentSet={id:null,title:'',subject:'',cards:[]};
 let study={order:[],i:0,wrong:[],score:0};
-function addCard(){currentSet.cards.push({front:'Question',back:'Réponse'});renderCards();}
-function renderCards(){const list=document.getElementById('cardsList');list.innerHTML='';currentSet.cards.forEach((c,i)=>{const div=document.createElement('div');div.innerHTML=`<input class='input' value='${c.front}' oninput='currentSet.cards[${i}].front=this.value'/><input class='input' value='${c.back}' oninput='currentSet.cards[${i}].back=this.value'/>`;list.appendChild(div);});}
+
+function saveSets(){localStorage.setItem('mini_quizlet_sets',JSON.stringify(sets));}
+function addCard(){currentSet.cards.push({front:'Question',back:'Réponse'});renderCards();saveCurrentSet();}
+function renderCards(){const list=document.getElementById('cardsList');list.innerHTML='';currentSet.cards.forEach((c,i)=>{const div=document.createElement('div');div.innerHTML=`<input class='input' value='${c.front}' oninput='currentSet.cards[${i}].front=this.value;saveCurrentSet();'/><input class='input' value='${c.back}' oninput='currentSet.cards[${i}].back=this.value;saveCurrentSet();'/>`;list.appendChild(div);});}
+function saveCurrentSet(){
+  const idx=sets.findIndex(s=>s.id===currentSet.id);
+  if(idx>=0){sets[idx]=currentSet;}else{currentSet.id=Date.now();sets.push(currentSet);}
+  saveSets();
+}
 document.getElementById('btnAddCard').onclick=addCard;
-document.getElementById('btnStudy').onclick=function(){if(currentSet.cards.length===0){alert('Ajoute au moins une carte !');return;}currentSet.title=document.getElementById('setTitle').value;currentSet.subject=document.getElementById('setSubject').value;startStudy();};
-function startStudy(){study.order=currentSet.cards.map((c,i)=>i);study.i=0;study.wrong=[];study.score=0;document.getElementById('viewEditor').style.display='none';document.getElementById('viewStudy').style.display='block';document.getElementById('studySetTitle').textContent=currentSet.title||'Sans titre';updateStudyCard();}
+document.getElementById('btnStudy').onclick=function(){
+  if(currentSet.cards.length===0){alert('Ajoute au moins une carte !');return;}
+  currentSet.title=document.getElementById('setTitle').value;
+  currentSet.subject=document.getElementById('setSubject').value;
+  saveCurrentSet();
+  startStudy();
+};
+
+function startStudy(restartWrong=false){
+  study.order=restartWrong?study.wrong.slice():currentSet.cards.map((c,i)=>i);
+  study.i=0;
+  study.wrong=[];
+  study.score=0;
+  document.getElementById('viewEditor').style.display='none';
+  document.getElementById('viewStudy').style.display='block';
+  document.getElementById('studySetTitle').textContent=currentSet.title||'Sans titre';
+  updateStudyCard();
+}
 function currentCard(){return currentSet.cards[study.order[study.i]];}
-function updateStudyCard(){const c=currentCard();if(!c){alert('Session terminée 🎉');document.getElementById('rewardMsg').textContent=`Score: ${study.score}/${study.order.length}`;return;}document.getElementById('studyProgress').textContent=`${study.i+1}/${study.order.length}`;document.getElementById('card').textContent=c.front;}
-function markCard(correct){const c=currentCard();if(correct){study.score++;}else{study.wrong.push(study.order[study.i]);}study.i++;updateStudyCard();}
-document.getElementById('btnRestartAll').onclick=function(){study.i=0;study.score=0;study.wrong=[];updateStudyCard();};
-document.getElementById('btnRestartWrong').onclick=function(){if(study.wrong.length===0){alert('Pas de mauvaises réponses.');return;}study.order=study.wrong.slice();study.i=0;study.score=0;study.wrong=[];updateStudyCard();};
-let startX=0;
+function updateStudyCard(){
+  const c=currentCard();
+  if(!c){document.getElementById('rewardMsg').textContent=`Score: ${study.score}/${study.order.length}`;return;}
+  document.getElementById('studyProgress').textContent=`${study.i+1}/${study.order.length}`;
+  document.querySelector('.card-front').textContent=c.front;
+  document.querySelector('.card-back').textContent=c.back;
+  document.getElementById('card').classList.remove('flipped');
+}
+function markCard(correct){
+  if(!correct) study.wrong.push(study.order[study.i]); else study.score++;
+  study.i++;
+  updateStudyCard();
+}
+document.getElementById('btnRestartAll').onclick=function(){startStudy(false);};
+document.getElementById('btnRestartWrong').onclick=function(){if(study.wrong.length===0){alert('Pas de mauvaises réponses.');return;}startStudy(true);};
+
 const cardEl=document.getElementById('card');
+let startX=0;
 cardEl.addEventListener('touchstart',e=>{startX=e.touches[0].clientX;});
 cardEl.addEventListener('touchmove',e=>{const dx=e.touches[0].clientX-startX;cardEl.style.transform=`translateX(${dx}px)`;});
-cardEl.addEventListener('touchend',e=>{const dx=e.changedTouches[0].clientX-startX;if(dx>50)markCard(true);else if(dx<-50)markCard(false);cardEl.style.transform='';});
+cardEl.addEventListener('touchend',e=>{
+  const dx=e.changedTouches[0].clientX-startX;
+  if(dx>50) markCard(true);
+  else if(dx<-50) markCard(false);
+  cardEl.style.transform='';
+});
+cardEl.addEventListener('click',()=>{cardEl.classList.toggle('flipped');});
+
+// Init
+if(sets.length>0) currentSet=sets[0];
+renderCards();
 </script>
 </body>
 </html>
